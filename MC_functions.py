@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 from datetime import datetime
+import math
 
 
 
@@ -14,10 +15,12 @@ class particle:
         self.x = []
         self.E = 0
 
+def gauss(x,mean,stdev):
+    return np.exp(- (x - mean)**2 / (2*stdev**2))
 # Particle size distribution function, x = random number 0-1
 def part_size_dist(min_radius):
     x = random.random()
-    out = 10*x   #OUTPUT VALUE
+    out = 10 * gauss(x,0.5,0.15)   #OUTPUT VALUE
     if out < min_radius:
         return min_radius
     else:
@@ -65,6 +68,7 @@ def plotCircles(p,b_lower,b_upper,col):
     ax = plt.gca()
     ax.set_xlim((b_lower[0], b_upper[0]))
     ax.set_ylim((b_lower[1], b_upper[1]))
+    ax.set_aspect('equal')
     for n in range(len(p)):
         circle = plt.Circle(*p[n].x, p[n].r, fill=False)#,color=col
         ax.add_artist(circle)
@@ -132,7 +136,10 @@ def pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight):
 
 
 #IANS APPROACH:
-def MC_Main(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+def MC_Main_Point(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+    # Initial Energy Calculation
+    for n in range(len(p)):
+        p[n].E = Energy(n, p, xmin, overlapWeight)
     # Don't show the graph or make an animation
     if showGraph == False and saveAnimation == False:
         for i in range(n_steps):
@@ -240,13 +247,149 @@ def writeText(fileName,p,dim,header,b_lower,b_upper):
         file.write('Dimensions: ' + str(dim) + '\n')
         file.write('Number of Particles: ' + str(len(p)) + '\n')
         file.write('Domain: ' + str(b_lower) + ' to ' + str(b_upper) + '\n')
-        file.write('%8s %12s %12s %8s\n' % ('x', 'y', 'z', 'r'))
     if dim == 2:
+        file.write('%8s %12s %12s %8s\n' % ('x', 'y', 'z', 'r'))
         for n in range(len(p)):
             file.write('%12.6f %12.6f %12.6f %8.4f\n' % (p[n].x[0, 0], p[n].x[0, 1], 0, p[n].r))
     elif dim == 3:
+        file.write('%8s %12s %12s %8s\n' % ('x', 'y', 'z', 'r'))
         for n in range(len(p)):
             file.write('%12.6f %12.6f %12.6f %8.4f\n' % (p[n].x[0, 0], p[n].x[0, 1], p[n].x[0, 2], p[n].r))
     else:
         raise ValueError('Dimension Error in writeText()')
     # return file
+
+# def gifToMP4()
+
+############################################################################################
+############################################################################################
+############################################################################################
+# PARTICLE DROP
+############################################################################################
+
+# Calculates the energy of the given particle n in p[n]
+def EnergyDrop(n,p,xmin,overlapWeight):
+    FE_dist = p[n].x[0,1] - xmin    # distance from center of particle to minimum energy location
+    PE = FE_dist**2
+    OE = 0  # overlap energy penalty
+    for m in range(len(p)):
+        if m != n:
+            dist = np.linalg.norm(p[n].x - p[m].x)
+            if dist < (p[n].r + p[m].r):
+                OE = OE + (p[n].r + p[m].r) - dist
+    return PE + overlapWeight * OE
+
+# Calculates the energy gradient at particle n in p[n]'s location
+#   Used to determine the direction of motion for the particle
+def dE_drDrop(n,p,xmin,overlapWeight):
+    # FE_dist = np.linalg.norm(p[n].x - xmin)  # distance from center of particle to minimum energy location
+    dPE_dr = np.array([0,2 * (p[n].x[0,1] - xmin)]) #** 2 # derivative of the
+    dOE_dr = 0  # overlap energy penalty
+    for m in range(len(p)):
+        if m != n:
+            dist = np.linalg.norm(p[n].x - p[m].x)
+            if dist < (p[n].r + p[m].r):
+                dOE_dr = dOE_dr + (p[m].x - p[n].x) / dist
+    return dPE_dr + overlapWeight * dOE_dr
+
+# Particles drop in the x direction (x=0 is the lowest energy)
+def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+    # Initial Energy Calculation
+    for n in range(len(p)):
+        p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+    # Don't show the graph or make an animation
+    if showGraph == False and saveAnimation == False:
+        for i in range(n_steps):
+            for n in range(len(p)):
+                x_last = p[n].x
+                E_last = p[n].E
+                it = 0
+                stop = False
+                while stop == False:
+                    dE = dE_drDrop(n, p, xmin, overlapWeight)
+                    disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
+                    p[n].x = p[n].x - disp_x
+                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+                    if p[n].E < E_last:
+                        stop = True
+                    elif it >= it_perParticle:
+                        stop = True
+                        p[n].x = x_last
+                        p[n].E = E_last
+                    elif pusherTF == True:
+                        p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
+                    it = it + 1
+        return p
+    # Show the graph but no animation
+    elif showGraph == True and saveAnimation == False:
+        plt.ion()
+        fig = plt.figure()
+        plotCircles(p, b_lower, b_upper, "red")
+        fig.canvas.draw()
+        plt.pause(pltTime)
+        for i in range(n_steps):
+            for n in range(len(p)):
+                x_last = p[n].x
+                E_last = p[n].E
+                it = 0
+                stop = False
+                while stop == False:
+                    dE = dE_drDrop(n, p, xmin, overlapWeight)
+                    disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
+                    p[n].x = p[n].x - disp_x
+                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+                    if p[n].E < E_last:
+                        stop = True
+                    elif it >= it_perParticle:
+                        stop = True
+                        p[n].x = x_last
+                        p[n].E = E_last
+                    elif pusherTF == True:
+                        p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
+                    it = it + 1
+            fig.clear(True)
+            plt.title(i+1)
+            plotCircles(p, b_lower, b_upper, "red")
+            fig.canvas.draw()
+            plt.pause(pltTime)
+        return p
+    elif showGraph == True and saveAnimation == True:
+        moviewriter = ani.ImageMagickWriter()
+        plt.ion()
+        fig = plt.figure()
+        name = aniName + "." + aniType
+        with moviewriter.saving(fig, name, aniDPI):
+            plotCircles(p, b_lower, b_upper, "red")
+            fig.canvas.draw()
+            moviewriter.grab_frame()
+            plt.pause(pltTime)
+            for i in range(n_steps):
+                for n in range(len(p)):
+                    x_last = p[n].x
+                    E_last = p[n].E
+                    it = 0
+                    stop = False
+                    while stop == False:
+                        dE = dE_drDrop(n, p, xmin, overlapWeight)
+                        disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
+                        p[n].x = p[n].x - disp_x
+                        p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+                        if p[n].E < E_last:
+                            stop = True
+                        elif it >= it_perParticle:
+                            stop = True
+                            p[n].x = x_last
+                            p[n].E = E_last
+                        elif pusherTF == True:
+                            p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
+                        it = it + 1
+                fig.clear(True)
+                plt.title(i+1)
+                plotCircles(p, b_lower, b_upper, "red")
+                fig.canvas.draw()
+                moviewriter.grab_frame()
+                plt.pause(pltTime)
+        moviewriter.finish()
+        return p
+    elif showGraph == False and saveAnimation == True:
+        raise ValueError("Can't save the animation without showing the graph.")
