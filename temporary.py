@@ -395,3 +395,44 @@ file.write("Header 2")
 for i in range(5):
     arr = str([i, i+1, i+2])
     file.write(arr + '\n')
+
+
+
+
+
+
+# VOLUME FRACTION CUTTING PARTICLES OUT
+vf = volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot)
+vf = vf[0]
+maxloop = 20
+max_part_del = 10
+lp = 0
+part_del = 0
+while lp < maxloop and part_del < max_part_del:
+    lp += 1
+    if vf > targetVF + vfTol:
+        p_new = np.delete(p, randint(0,len(p)-1),axis=0)
+        p_new = MC_Main_Drop(25, p_new, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,
+                             pusherTF,False,pltTime,False,aniName,aniType,aniDPI)
+        vf_new = volumeFractionSampling(p_new,dim,b_lower,b_upper,sampleNum,samplePlot=False)
+        # If everything is done
+        if vf_new <= targetVF + vfTol and vf_new >= targetVF - vfTol:
+            vf = vf_new
+            p = p_new
+            # lp = maxloop + 1
+            print("Success- Volume Fraction = ",vf)
+            print("* Check the graph to make sure it is one cohesive block of particles")
+            break
+        elif vf_new > targetVF + vfTol:
+            p = p_new
+            part_del += 1
+            vf = vf_new
+            # lp += 1
+        # elif vf_new < targetVF - vfTol:
+        #     lp += 1
+    print("loop = ",lp)
+    print("particles deleted = ",part_del)
+if part_del == max_part_del:
+    print("FAILED: Maximum number of particles deleted")
+vf = volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot)
+

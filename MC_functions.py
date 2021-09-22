@@ -5,6 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 from datetime import datetime
+from scipy.spatial import ConvexHull, Delaunay
+from numpy.linalg import det
+from scipy.stats import dirichlet
+from collections import namedtuple
 import math
 
 
@@ -20,7 +24,7 @@ def gauss(x,mean,stdev):
 # Particle size distribution function, x = random number 0-1
 def part_size_dist(min_radius):
     x = random.random()
-    out = 10 * gauss(x,0.5,0.15)   #OUTPUT VALUE
+    out = 300 * gauss(x,0.5,0.15)   #OUTPUT VALUE
     if out < min_radius:
         return min_radius
     else:
@@ -54,12 +58,13 @@ def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its):
                             loop = 1
                             break
                         else:
-                            print("ERROR: MAX ITERATIONS REACHED")
+                            print("ERROR: MAX ITERATIONS REACHED - there will be particle overlap")
                     else:
                         loop = 0
             else:
                 loop = 0
-    print("Iterations used = ", it)
+    print("Iterations used for initial condition = ", it)
+    print(" ")
     return p
 
 
@@ -261,6 +266,56 @@ def writeText(fileName,p,dim,header,b_lower,b_upper):
 
 # def gifToMP4()
 
+
+# script for volumeFractionSampling
+def dist_in_hull(points, n):
+    dims = points.shape[-1]
+    hull = points[ConvexHull(points).vertices]
+    deln = hull[Delaunay(hull).simplices]
+
+    vols = np.abs(det(deln[:, :dims, :] - deln[:, dims:, :])) / np.math.factorial(dims)
+    sample = np.random.choice(len(vols), size=n, p=vols / vols.sum())
+
+    return np.einsum('ijk, ij -> ik', deln[sample], dirichlet.rvs([1] * (dims + 1), size=n))
+
+
+# Samples sampleNum random(?) points in a convex hull of particle centers to calculate volume fraction solid
+def volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot):
+    x = np.zeros((len(p), dim))
+    Circle = namedtuple("Circle", "x y r")
+    circles = []
+    # Restructure the data
+    for n in range(len(p)):
+        x[n, 0] = p[n].x[0, 0]
+        x[n, 1] = p[n].x[0, 1]
+        circles.append(Circle(p[n].x[0, 0], p[n].x[0, 1], p[n].r))
+    # Calculate the convex hull and the array of points in the hull
+    hull = ConvexHull(x)
+    sample = dist_in_hull(x, sampleNum)
+
+    count = 0
+    colorCode = np.zeros(len(sample))
+    for n in range(len(sample)):
+        if any((sample[n, 0] - circle.x) ** 2 + (sample[n, 1] - circle.y) ** 2 <= (circle.r ** 2) for circle in circles):
+            count += 1
+            colorCode[n] = 1
+
+    if samplePlot == True:
+        fig = plt.figure()
+        plotCircles(p, b_lower, b_upper, 'red')
+        for simplex in hull.simplices:
+            plt.plot(x[simplex, 0], x[simplex, 1], 'b-')
+        plt.scatter(sample[:, 0], sample[:, 1], c=np.where(colorCode == 1, 'red', 'gray'), s=2)
+        plt.autoscale()
+        # print("Of the ", sampleNum, " points, ", count, " were in particles.")
+        # print("-> Approximated volume fraction = ", count / sampleNum)
+        return count/sampleNum, fig
+
+    # print("Of the ", sampleNum, " points, ", count, " were in particles.")
+    # print("-> Approximated volume fraction = ", count / sampleNum)
+    return count/sampleNum
+
+
 ############################################################################################
 ############################################################################################
 ############################################################################################
@@ -393,3 +448,4 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
         return p
     elif showGraph == False and saveAnimation == True:
         raise ValueError("Can't save the animation without showing the graph.")
+
