@@ -10,6 +10,8 @@ from numpy.linalg import det
 from scipy.stats import dirichlet
 from collections import namedtuple
 import math
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from mpl_toolkits import mplot3d
 
 
 
@@ -67,9 +69,14 @@ def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its):
     print(" ")
     return p
 
+def plots(p,b_lower,b_upper,dim):
+    if dim == 2:
+        return plotCircles(p,b_lower,b_upper)
+    elif dim == 3:
+        return plotSpheres(p, b_lower, b_upper)
 
 # Circle Plotting Function
-def plotCircles(p,b_lower,b_upper,col):
+def plotCircles(p,b_lower,b_upper):
     ax = plt.gca()
     ax.set_xlim((b_lower[0], b_upper[0]))
     ax.set_ylim((b_lower[1], b_upper[1]))
@@ -77,6 +84,23 @@ def plotCircles(p,b_lower,b_upper,col):
     for n in range(len(p)):
         circle = plt.Circle(*p[n].x, p[n].r, fill=False)#,color=col
         ax.add_artist(circle)
+    return ax
+
+# Sphere plotting function (for dim = 3)
+def plotSpheres(p,b_lower,b_upper):
+    ax = plt.subplot(1,1,1,projection='3d')#axes(projection='3d')
+    # fig = plt.figure()#figsize=(8, 6)
+    # ax = fig.add_subplot(1, 1, 1, projection='3d')
+    ax.set_xlim3d((b_lower[0], b_upper[0]))
+    ax.set_ylim3d((b_lower[1], b_upper[1]))
+    ax.set_zlim3d((b_lower[2], b_upper[2]))
+    ax.set_box_aspect((b_upper[0]-b_lower[0],b_upper[1]-b_lower[1],b_upper[2]-b_lower[2]))
+    u, v = np.mgrid[0:2 * np.pi:20j, 0:np.pi:20j] # changing number before j smooths spheres
+    for n in range(len(p)):
+        x = p[n].r * np.cos(u) * np.sin(v)
+        y = p[n].r * np.sin(u) * np.sin(v)
+        z = p[n].r * np.cos(v)
+        ax.plot_surface(x + p[n].x[0,0], y + p[n].x[0,1], z + p[n].x[0,2],alpha=0.5) # alpha is transparency
     return ax
 
 # Potential Energy Function
@@ -141,7 +165,7 @@ def pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight):
 
 
 #IANS APPROACH:
-def MC_Main_Point(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
     # Initial Energy Calculation
     for n in range(len(p)):
         p[n].E = Energy(n, p, xmin, overlapWeight)
@@ -172,7 +196,8 @@ def MC_Main_Point(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, 
     elif showGraph == True and saveAnimation == False:
         plt.ion()
         fig = plt.figure()
-        plotCircles(p, b_lower, b_upper, "red")
+        # plotCircles(p, b_lower, b_upper, "red")
+        plots(p, b_lower, b_upper, dim)
         fig.canvas.draw()
         plt.pause(pltTime)
         for i in range(n_steps):
@@ -196,8 +221,10 @@ def MC_Main_Point(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, 
                         p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
                     it = it + 1
             fig.clear(True)
-            plt.title(i+1)
-            plotCircles(p, b_lower, b_upper, "red")
+            # plt.title(i + 1)
+            # plotCircles(p, b_lower, b_upper, "red")
+            plots(p, b_lower, b_upper, dim)
+            plt.title(i + 1)
             fig.canvas.draw()
             plt.pause(pltTime)
         return p
@@ -207,7 +234,8 @@ def MC_Main_Point(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, 
         fig = plt.figure()
         name = aniName + "." + aniType
         with moviewriter.saving(fig, name, aniDPI):
-            plotCircles(p, b_lower, b_upper, "red")
+            # plotCircles(p, b_lower, b_upper, "red")
+            plots(p, b_lower, b_upper, dim)
             fig.canvas.draw()
             moviewriter.grab_frame()
             plt.pause(pltTime)
@@ -232,8 +260,10 @@ def MC_Main_Point(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, 
                             p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
                         it = it + 1
                 fig.clear(True)
-                plt.title(i+1)
-                plotCircles(p, b_lower, b_upper, "red")
+                # plt.title(i+1)
+                # plotCircles(p, b_lower, b_upper, "red")
+                plots(p, b_lower, b_upper, dim)
+                plt.title(i + 1)
                 fig.canvas.draw()
                 moviewriter.grab_frame()
                 plt.pause(pltTime)
@@ -282,37 +312,71 @@ def dist_in_hull(points, n):
 # Samples sampleNum random(?) points in a convex hull of particle centers to calculate volume fraction solid
 def volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot):
     x = np.zeros((len(p), dim))
-    Circle = namedtuple("Circle", "x y r")
-    circles = []
-    # Restructure the data
-    for n in range(len(p)):
-        x[n, 0] = p[n].x[0, 0]
-        x[n, 1] = p[n].x[0, 1]
-        circles.append(Circle(p[n].x[0, 0], p[n].x[0, 1], p[n].r))
-    # Calculate the convex hull and the array of points in the hull
-    hull = ConvexHull(x)
-    sample = dist_in_hull(x, sampleNum)
+    if dim == 2:
+        Circle = namedtuple("Circle", "x y r")
+        circles = []
+        # Restructure the data
+        for n in range(len(p)):
+            x[n, 0] = p[n].x[0, 0]
+            x[n, 1] = p[n].x[0, 1]
+            circles.append(Circle(p[n].x[0, 0], p[n].x[0, 1], p[n].r))
 
-    count = 0
-    colorCode = np.zeros(len(sample))
-    for n in range(len(sample)):
-        if any((sample[n, 0] - circle.x) ** 2 + (sample[n, 1] - circle.y) ** 2 <= (circle.r ** 2) for circle in circles):
-            count += 1
-            colorCode[n] = 1
+        # Calculate the convex hull and the array of points in the hull
+        hull = ConvexHull(x)
+        sample = dist_in_hull(x, sampleNum)
 
-    if samplePlot == True:
-        fig = plt.figure()
-        plotCircles(p, b_lower, b_upper, 'red')
-        for simplex in hull.simplices:
-            plt.plot(x[simplex, 0], x[simplex, 1], 'b-')
-        plt.scatter(sample[:, 0], sample[:, 1], c=np.where(colorCode == 1, 'red', 'gray'), s=2)
-        plt.autoscale()
-        # print("Of the ", sampleNum, " points, ", count, " were in particles.")
-        # print("-> Approximated volume fraction = ", count / sampleNum)
-        return count/sampleNum, fig
+        count = 0
+        colorCode = np.zeros(len(sample))
+        for n in range(len(sample)):
+            if any((sample[n, 0] - circle.x) ** 2 + (sample[n, 1] - circle.y) ** 2 <= (circle.r ** 2) for circle in
+                   circles):
+                count += 1
+                colorCode[n] = 1
+        if samplePlot == True:
+            fig = plt.figure()
+            plots(p, b_lower, b_upper, dim)
+            for simplex in hull.simplices:
+                plt.plot(x[simplex, 0], x[simplex, 1], 'b-')
+            plt.scatter(sample[:, 0], sample[:, 1], c=np.where(colorCode == 1, 'red', 'gray'), s=2)
+            plt.autoscale()
+            # print("Of the ", sampleNum, " points, ", count, " were in particles.")
+            # print("-> Approximated volume fraction = ", count / sampleNum)
+            return count/sampleNum, fig
 
-    # print("Of the ", sampleNum, " points, ", count, " were in particles.")
-    # print("-> Approximated volume fraction = ", count / sampleNum)
+    elif dim == 3:
+        Circle = namedtuple("Circle", "x y z r")
+        circles = []
+        # Restructure the data
+        for n in range(len(p)):
+            x[n, 0] = p[n].x[0, 0]
+            x[n, 1] = p[n].x[0, 1]
+            x[n, 2] = p[n].x[0, 2]
+            circles.append(Circle(p[n].x[0, 0], p[n].x[0, 1], p[n].x[0, 2], p[n].r))
+
+        # Calculate the convex hull and the array of points in the hull
+        hull = ConvexHull(x)
+        sample = dist_in_hull(x, sampleNum)
+
+        count = 0
+        colorCode = np.zeros(len(sample))
+        for n in range(len(sample)):
+            if any((sample[n, 0] - circle.x) ** 2 + (sample[n, 1] - circle.y) ** 2 + (sample[n, 2] - circle.z) ** 2 <=
+                   (circle.r ** 2) for circle in circles):
+                count += 1
+                colorCode[n] = 1
+
+        if samplePlot == True:
+            fig = plt.figure()
+            ax = plots(p, b_lower, b_upper, dim)
+            for simplex in hull.simplices:
+                plt.plot(x[simplex, 0], x[simplex, 1], x[simplex,2], 'b-')
+            # Now plot the random points!
+            ax.scatter3D(sample[:, 0], sample[:, 1], sample[:, 2], c=np.where(colorCode == 1, 'red', 'gray'),s=2,alpha=0.3)
+            plt.autoscale()
+            # print("Of the ", sampleNum, " points, ", count, " were in particles.")
+            # print("-> Approximated volume fraction = ", count / sampleNum)
+            return count / sampleNum, fig
+
     return count/sampleNum
 
 
@@ -323,8 +387,8 @@ def volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot):
 ############################################################################################
 
 # Calculates the energy of the given particle n in p[n]
-def EnergyDrop(n,p,xmin,overlapWeight):
-    FE_dist = p[n].x[0,1] - xmin    # distance from center of particle to minimum energy location
+def EnergyDrop(n,p,xmin,overlapWeight,dropAxis):
+    FE_dist = p[n].x[0,dropAxis] - xmin    # distance from center of particle to minimum energy location
     PE = FE_dist**2
     OE = 0  # overlap energy penalty
     for m in range(len(p)):
@@ -336,9 +400,13 @@ def EnergyDrop(n,p,xmin,overlapWeight):
 
 # Calculates the energy gradient at particle n in p[n]'s location
 #   Used to determine the direction of motion for the particle
-def dE_drDrop(n,p,xmin,overlapWeight):
+def dE_drDrop(n,p,dim,xmin,overlapWeight,dropAxis):
     # FE_dist = np.linalg.norm(p[n].x - xmin)  # distance from center of particle to minimum energy location
-    dPE_dr = np.array([0,2 * (p[n].x[0,1] - xmin)]) #** 2 # derivative of the
+    if dim == 2:
+        dPE_dr = np.array([0,0])
+    elif dim == 3:
+        dPE_dr = np.array([0, 0, 0])
+    dPE_dr[dropAxis] = 2 * (p[n].x[0, dropAxis] - xmin)  # ** 2 # derivative of the
     dOE_dr = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
@@ -348,10 +416,10 @@ def dE_drDrop(n,p,xmin,overlapWeight):
     return dPE_dr + overlapWeight * dOE_dr
 
 # Particles drop in the x direction (x=0 is the lowest energy)
-def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight, dropAxis, pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
     # Initial Energy Calculation
     for n in range(len(p)):
-        p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+        p[n].E = EnergyDrop(n, p, xmin, overlapWeight,dropAxis)
     # Don't show the graph or make an animation
     if showGraph == False and saveAnimation == False:
         for i in range(n_steps):
@@ -361,10 +429,13 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
                 it = 0
                 stop = False
                 while stop == False:
-                    dE = dE_drDrop(n, p, xmin, overlapWeight)
-                    disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
+                    dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis)
+                    if np.linalg.norm(dE) == 0.0:
+                        disp_x = np.zeros(dim)
+                    else:
+                        disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                     p[n].x = p[n].x - disp_x
-                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis)
                     if p[n].E < E_last:
                         stop = True
                     elif it >= it_perParticle:
@@ -379,7 +450,8 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
     elif showGraph == True and saveAnimation == False:
         plt.ion()
         fig = plt.figure()
-        plotCircles(p, b_lower, b_upper, "red")
+        # plotCircles(p, b_lower, b_upper, "red")
+        plots(p, b_lower, b_upper, dim)
         fig.canvas.draw()
         plt.pause(pltTime)
         for i in range(n_steps):
@@ -389,10 +461,13 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
                 it = 0
                 stop = False
                 while stop == False:
-                    dE = dE_drDrop(n, p, xmin, overlapWeight)
-                    disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
+                    dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis)
+                    if np.linalg.norm(dE) == 0.0:
+                        disp_x = np.zeros(dim)
+                    else:
+                        disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                     p[n].x = p[n].x - disp_x
-                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis)
                     if p[n].E < E_last:
                         stop = True
                     elif it >= it_perParticle:
@@ -403,8 +478,10 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
                         p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
                     it = it + 1
             fig.clear(True)
-            plt.title(i+1)
-            plotCircles(p, b_lower, b_upper, "red")
+            # plt.title(i+1)
+            # plotCircles(p, b_lower, b_upper, "red")
+            plots(p, b_lower, b_upper, dim)
+            plt.title(i + 1)
             fig.canvas.draw()
             plt.pause(pltTime)
         return p
@@ -414,7 +491,8 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
         fig = plt.figure()
         name = aniName + "." + aniType
         with moviewriter.saving(fig, name, aniDPI):
-            plotCircles(p, b_lower, b_upper, "red")
+            # plotCircles(p, b_lower, b_upper, "red")
+            plots(p, b_lower, b_upper, dim)
             fig.canvas.draw()
             moviewriter.grab_frame()
             plt.pause(pltTime)
@@ -425,10 +503,13 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
                     it = 0
                     stop = False
                     while stop == False:
-                        dE = dE_drDrop(n, p, xmin, overlapWeight)
-                        disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
+                        dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis)
+                        if np.linalg.norm(dE) == 0.0:
+                            disp_x = np.zeros(dim)
+                        else:
+                            disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                         p[n].x = p[n].x - disp_x
-                        p[n].E = EnergyDrop(n, p, xmin, overlapWeight)
+                        p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis)
                         if p[n].E < E_last:
                             stop = True
                         elif it >= it_perParticle:
@@ -439,8 +520,10 @@ def MC_Main_Drop(n_steps, p, b_lower, b_upper, it_perParticle, disp_max, xmin, o
                             p = pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight)
                         it = it + 1
                 fig.clear(True)
+                # plt.title(i+1)
+                # plotCircles(p, b_lower, b_upper, "red")
+                plots(p, b_lower, b_upper, dim)
                 plt.title(i+1)
-                plotCircles(p, b_lower, b_upper, "red")
                 fig.canvas.draw()
                 moviewriter.grab_frame()
                 plt.pause(pltTime)
