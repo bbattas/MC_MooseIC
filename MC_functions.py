@@ -23,6 +23,7 @@ class particle:
 
 def gauss(x,mean,stdev):
     return np.exp(- (x - mean)**2 / (2*stdev**2))
+
 # Particle size distribution function, x = random number 0-1
 def part_size_dist(min_radius):
     x = random.random()
@@ -32,8 +33,91 @@ def part_size_dist(min_radius):
     else:
         return out
 
+# Periodic shift if x outside domain (set p[n].x = domainShift)
+def domainShift(p,n,b_lower,b_upper,periodic):
+    if periodic == False:
+        return p[n].x
+    domainTest = np.any((p[n].x>b_upper)|(p[n].x<b_lower))
+    if domainTest == False:
+        return p[n].x
+    elif domainTest == True:
+        overTest = p[n].x > b_upper
+        underTest = p[n].x < b_lower
+        return p[n].x - overTest*(b_upper-b_lower) + underTest*(b_upper-b_lower)
+
+# Distance function to implement periodic boundary conditions if needed
+# p1 and p2 will mainly be the particle x cooridnates (p[n].x)
+def distance(p1,p2,dim,b_upper,b_lower,periodic):
+    if periodic == False:
+        return np.linalg.norm(p1 - p2)
+    if periodic == True:
+        diff = p1 - p2
+        perCheck = np.any(abs(diff) > 0.5*(b_upper-b_lower))
+        if perCheck == False:
+            return np.linalg.norm(p1 - p2)
+        elif perCheck == True:
+            if dim == 2:
+                pD = b_upper-b_lower # periodic domain lengths
+                # make an array of the image cell shifts possible in 2D
+                perArray = np.array([[-1,-1]*pD,[-1,0]*pD,[-1,1]*pD,
+                                     [0,-1]*pD,[0,0]*pD,[0,1]*pD,
+                                     [1,-1]*pD,[1,0]*pD,[1,1]*pD])
+                # shift the second particle into all possible image cells
+                perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+                return min(perDist)
+            elif dim == 3:
+                pD = b_upper-b_lower # periodic domain lengths
+                # make an array of the image cell shifts possible in 3D
+                perArray = np.array([[-1,-1, -1]*pD,[-1,0, -1]*pD,[-1,1, -1]*pD,
+                                     [0,-1, -1]*pD,[0,0, -1]*pD,[0,1, -1]*pD,
+                                     [1,-1, -1]*pD,[1,0, -1]*pD,[1,1, -1]*pD,
+                                     [-1, -1, 0] * pD, [-1, 0, 0] * pD, [-1, 1, 0] * pD,
+                                     [0, -1, 0] * pD, [0, 0, 0] * pD, [0, 1, 0] * pD,
+                                     [1, -1, 0] * pD, [1, 0, 0] * pD, [1, 1, 0] * pD,
+                                     [-1, -1, 1] * pD, [-1, 0, 1] * pD, [-1, 1, 1] * pD,
+                                     [0, -1, 1] * pD, [0, 0, 1] * pD, [0, 1, 1] * pD,
+                                     [1, -1, 1] * pD, [1, 0, 1] * pD, [1, 1, 1] * pD])
+                # shift the second particle into all possible image cells
+                perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+                return min(perDist)
+
+# for the free energy gradient to be periodic
+def d_distance(p1,p2,dim,b_upper,b_lower,periodic):
+    if periodic == False:
+        return p1 - p2
+    if periodic == True:
+        diff = p1 - p2
+        perCheck = np.any(abs(diff) > 0.5*(b_upper-b_lower))
+        if perCheck == False:
+            return p1 - p2
+        elif perCheck == True:
+            if dim == 2:
+                pD = b_upper-b_lower # periodic domain lengths
+                # make an array of the image cell shifts possible in 2D
+                perArray = np.array([[-1,-1]*pD,[-1,0]*pD,[-1,1]*pD,
+                                     [0,-1]*pD,[0,0]*pD,[0,1]*pD,
+                                     [1,-1]*pD,[1,0]*pD,[1,1]*pD])
+                # shift the second particle into all possible image cells
+                perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+                return p1 - (p2 + perArray[perDist.index(min(perDist))])
+            elif dim == 3:
+                pD = b_upper-b_lower # periodic domain lengths
+                # make an array of the image cell shifts possible in 3D
+                perArray = np.array([[-1,-1, -1]*pD,[-1,0, -1]*pD,[-1,1, -1]*pD,
+                                     [0,-1, -1]*pD,[0,0, -1]*pD,[0,1, -1]*pD,
+                                     [1,-1, -1]*pD,[1,0, -1]*pD,[1,1, -1]*pD,
+                                     [-1, -1, 0] * pD, [-1, 0, 0] * pD, [-1, 1, 0] * pD,
+                                     [0, -1, 0] * pD, [0, 0, 0] * pD, [0, 1, 0] * pD,
+                                     [1, -1, 0] * pD, [1, 0, 0] * pD, [1, 1, 0] * pD,
+                                     [-1, -1, 1] * pD, [-1, 0, 1] * pD, [-1, 1, 1] * pD,
+                                     [0, -1, 1] * pD, [0, 0, 1] * pD, [0, 1, 1] * pD,
+                                     [1, -1, 1] * pD, [1, 0, 1] * pD, [1, 1, 1] * pD])
+                # shift the second particle into all possible image cells
+                perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+                return p1 - (p2 + perArray[perDist.index(min(perDist))])
+
 # Initial particle radius and location setup
-def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its):
+def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its,periodic):
     p = []
     it = 0
     for n in range(N):
@@ -53,7 +137,8 @@ def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its):
             # Check that the most recent particle isn't overlapping previous particles
             if n != 0:
                 for i in range(0, n):
-                    dist = np.linalg.norm(p[n].x - p[i].x)
+                    # dist = np.linalg.norm(p[n].x - p[i].x)
+                    dist = distance(p[n].x,p[i].x,dim,b_upper,b_lower,periodic)
                     if dist < (p[n].r + p[i].r):
                         if it < max_ic_its:
                             it = it + 1
@@ -109,31 +194,34 @@ def PotentialE(distFromIdeal):
     return distFromIdeal**2
 
 # Calculates the energy of the given particle n in p[n]
-def Energy(n,p,xmin,overlapWeight):
-    FE_dist = np.linalg.norm(p[n].x - xmin)    # distance from center of particle to minimum energy location
+def Energy(n,p,xmin,overlapWeight,dim,b_upper,b_lower,periodic):
+    # FE_dist = np.linalg.norm(p[n].x - xmin)    # distance from center of particle to minimum energy location
+    FE_dist = distance(p[n].x,xmin,dim,b_upper,b_lower,periodic) # for periodic distance
     PE = FE_dist**2
     OE = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
-            dist = np.linalg.norm(p[n].x - p[m].x)
+            dist = distance(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
             if dist < (p[n].r + p[m].r):
                 OE = OE + (p[n].r + p[m].r) - dist
     return PE + overlapWeight * OE#PotentialE(FE_dist) + overlapWeight * OE
 
 # Calculates the energy gradient at particle n in p[n]'s location
 #   Used to determine the direction of motion for the particle
-def dE_dr(n,p,xmin,overlapWeight):
+def dE_dr(n,p,xmin,overlapWeight,dim,b_upper,b_lower,periodic):
     # FE_dist = np.linalg.norm(p[n].x - xmin)  # distance from center of particle to minimum energy location
-    dPE_dr = 2 * (p[n].x - xmin) #** 2 # derivative of the
+    # dPE_dr = 2 * (p[n].x - xmin) # derivative of the PE in vector form not as a norm
+    dPE_dr = 2 * d_distance(p[n].x,xmin,dim,b_upper,b_lower,periodic) # for periodic gradient??????
     dOE_dr = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
-            dist = np.linalg.norm(p[n].x - p[m].x)
+            dist = distance(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
             if dist < (p[n].r + p[m].r):
                 dOE_dr = dOE_dr + (p[m].x - p[n].x) / dist
     return dPE_dr + overlapWeight * dOE_dr
 
 # Pushes overlapping atom away by the same displacement as the last moved atom
+# NOT BEING USED- makes everything spaz out
 def pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight):
     p_new = p
     stop = False
@@ -165,10 +253,10 @@ def pusher(n, p, it_perParticle, disp_x, xmin, overlapWeight):
 
 
 #IANS APPROACH:
-def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
     # Initial Energy Calculation
     for n in range(len(p)):
-        p[n].E = Energy(n, p, xmin, overlapWeight)
+        p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
     # Don't show the graph or make an animation
     if showGraph == False and saveAnimation == False:
         for i in range(n_steps):
@@ -178,10 +266,12 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
                 it = 0
                 stop = False
                 while stop == False:
-                    dE = dE_dr(n, p, xmin, overlapWeight)
+                    dE = dE_dr(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                     disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                     p[n].x = p[n].x - disp_x
-                    p[n].E = Energy(n, p, xmin, overlapWeight)
+                    # Periodic shift if new position is outside the bounds
+                    p[n].x = domainShift(p,n,b_lower,b_upper,periodic)
+                    p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                     if p[n].E < E_last:
                         stop = True
                     elif it >= it_perParticle:
@@ -207,10 +297,12 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
                 it = 0
                 stop = False
                 while stop == False:
-                    dE = dE_dr(n, p, xmin, overlapWeight)
+                    dE = dE_dr(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                     disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                     p[n].x = p[n].x - disp_x
-                    p[n].E = Energy(n, p, xmin, overlapWeight)
+                    # Periodic shift if new position is outside the bounds
+                    p[n].x = domainShift(p, n, b_lower, b_upper,periodic)
+                    p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                     if p[n].E < E_last:
                         stop = True
                     elif it >= it_perParticle:
@@ -246,10 +338,12 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
                     it = 0
                     stop = False
                     while stop == False:
-                        dE = dE_dr(n, p, xmin, overlapWeight)
+                        dE = dE_dr(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                         disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                         p[n].x = p[n].x - disp_x
-                        p[n].E = Energy(n, p, xmin, overlapWeight)
+                        # Periodic shift if new position is outside the bounds
+                        p[n].x = domainShift(p, n, b_lower, b_upper,periodic)
+                        p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                         if p[n].E < E_last:
                             stop = True
                         elif it >= it_perParticle:
@@ -386,40 +480,61 @@ def volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot):
 # PARTICLE DROP
 ############################################################################################
 
+# Gradient distance for drop (so only on the specified axis
+# for the free energy gradient to be periodic
+def d_distanceDrop(p1,p2,dim,b_upper,b_lower,periodic,dropAxis):
+    if periodic == False:
+        return p1 - p2
+    if periodic == True:
+        diff = p1 - p2
+        perCheck = np.any(abs(diff) > 0.5*(b_upper[dropAxis]-b_lower[dropAxis]))
+        if perCheck == False:
+            return p1 - p2
+        elif perCheck == True:
+            pD = b_upper[dropAxis]-b_lower[dropAxis] # periodic domain lengths
+            # make an array of the image cell shifts possible in 2D
+            perArray = np.array([-1*pD,0*pD,1*pD])
+            # shift the second particle into all possible image cells
+            perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+            return p1 - (p2 + perArray[perDist.index(min(perDist))])
+
+
 # Calculates the energy of the given particle n in p[n]
-def EnergyDrop(n,p,xmin,overlapWeight,dropAxis):
-    FE_dist = p[n].x[0,dropAxis] - xmin    # distance from center of particle to minimum energy location
+def EnergyDrop(n,p,xmin,overlapWeight,dropAxis,dim,b_upper,b_lower,periodic):
+    # FE_dist = p[n].x[0,dropAxis] - xmin    # distance from center of particle to minimum energy location
+    FE_dist = distance(p[n].x[0,dropAxis],xmin,dim,b_upper,b_lower,periodic)
     PE = FE_dist**2
     OE = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
-            dist = np.linalg.norm(p[n].x - p[m].x)
+            dist = distance(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
             if dist < (p[n].r + p[m].r):
                 OE = OE + (p[n].r + p[m].r) - dist
     return PE + overlapWeight * OE
 
 # Calculates the energy gradient at particle n in p[n]'s location
 #   Used to determine the direction of motion for the particle
-def dE_drDrop(n,p,dim,xmin,overlapWeight,dropAxis):
+def dE_drDrop(n,p,dim,xmin,overlapWeight,dropAxis,b_upper,b_lower,periodic):
     # FE_dist = np.linalg.norm(p[n].x - xmin)  # distance from center of particle to minimum energy location
     if dim == 2:
         dPE_dr = np.array([0,0])
     elif dim == 3:
         dPE_dr = np.array([0, 0, 0])
-    dPE_dr[dropAxis] = 2 * (p[n].x[0, dropAxis] - xmin)  # ** 2 # derivative of the
+    # dPE_dr[dropAxis] = 2 * (p[n].x[0, dropAxis] - xmin)  # ** 2 # derivative of the
+    dPE_dr[dropAxis] = 2 * d_distanceDrop(p[n].x[0,dropAxis],xmin,dim,b_upper,b_lower,periodic,dropAxis)
     dOE_dr = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
-            dist = np.linalg.norm(p[n].x - p[m].x)
+            dist = distance(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
             if dist < (p[n].r + p[m].r):
                 dOE_dr = dOE_dr + (p[m].x - p[n].x) / dist
     return dPE_dr + overlapWeight * dOE_dr
 
 # Particles drop in the x direction (x=0 is the lowest energy)
-def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, overlapWeight, dropAxis, pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
+def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight, dropAxis, pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI):
     # Initial Energy Calculation
     for n in range(len(p)):
-        p[n].E = EnergyDrop(n, p, xmin, overlapWeight,dropAxis)
+        p[n].E = EnergyDrop(n, p, xmin, overlapWeight,dropAxis,dim,b_upper,b_lower,periodic)
     # Don't show the graph or make an animation
     if showGraph == False and saveAnimation == False:
         for i in range(n_steps):
@@ -429,13 +544,15 @@ def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xm
                 it = 0
                 stop = False
                 while stop == False:
-                    dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis)
+                    dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis,b_upper,b_lower,periodic)
                     if np.linalg.norm(dE) == 0.0:
                         disp_x = np.zeros(dim)
                     else:
                         disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                     p[n].x = p[n].x - disp_x
-                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis)
+                    # Periodic shift if new position is outside the bounds
+                    p[n].x = domainShift(p, n, b_lower, b_upper, periodic)
+                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis,dim,b_upper,b_lower,periodic)
                     if p[n].E < E_last:
                         stop = True
                     elif it >= it_perParticle:
@@ -461,13 +578,15 @@ def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xm
                 it = 0
                 stop = False
                 while stop == False:
-                    dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis)
+                    dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis,b_upper,b_lower,periodic)
                     if np.linalg.norm(dE) == 0.0:
                         disp_x = np.zeros(dim)
                     else:
                         disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                     p[n].x = p[n].x - disp_x
-                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis)
+                    # Periodic shift if new position is outside the bounds
+                    p[n].x = domainShift(p, n, b_lower, b_upper, periodic)
+                    p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis,dim,b_upper,b_lower,periodic)
                     if p[n].E < E_last:
                         stop = True
                     elif it >= it_perParticle:
@@ -503,13 +622,15 @@ def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xm
                     it = 0
                     stop = False
                     while stop == False:
-                        dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis)
+                        dE = dE_drDrop(n, p, dim, xmin, overlapWeight, dropAxis,b_upper,b_lower,periodic)
                         if np.linalg.norm(dE) == 0.0:
                             disp_x = np.zeros(dim)
                         else:
                             disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
                         p[n].x = p[n].x - disp_x
-                        p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis)
+                        # Periodic shift if new position is outside the bounds
+                        p[n].x = domainShift(p, n, b_lower, b_upper, periodic)
+                        p[n].E = EnergyDrop(n, p, xmin, overlapWeight, dropAxis,dim,b_upper,b_lower,periodic)
                         if p[n].E < E_last:
                             stop = True
                         elif it >= it_perParticle:
