@@ -9,6 +9,7 @@ from scipy.spatial import ConvexHull, Delaunay
 from numpy.linalg import det
 from scipy.stats import dirichlet
 from collections import namedtuple
+from random import randint
 import math
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits import mplot3d
@@ -21,18 +22,19 @@ class particle:
         self.x = []
         self.E = 0
 
-def gauss(x,mean,stdev):
-    return np.exp(- (x - mean)**2 / (2*stdev**2))
+# def gauss(x,mean,stdev):
+#     return np.exp(- (x - mean)**2 / (2*stdev**2))
 
 # Particle size distribution function, x = random number 0-1
-def part_size_dist(min_radius):
-    x = random.random()
-    out = 300 * gauss(x,0.5,0.15)   #OUTPUT VALUE
-    if out < min_radius:
-        return min_radius
+def part_size_dist(min_diameter,max_diameter):
+    x = random.gauss(0.5,0.3)
+    out = 40000 * x + 10000   #OUTPUT VALUE
+    if out < min_diameter:
+        return min_diameter/2
+    elif out > max_diameter:
+        return max_diameter/2
     else:
-        return out
-
+        return out/2
 # Periodic shift if x outside domain (set p[n].x = domainShift)
 def domainShift(p,n,b_lower,b_upper,periodic):
     if periodic == False:
@@ -117,7 +119,7 @@ def d_distance(p1,p2,dim,b_upper,b_lower,periodic):
                 return p1 - (p2 + perArray[perDist.index(min(perDist))])
 
 # Initial particle radius and location setup
-def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its,periodic):
+def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,periodic):
     p = []
     it = 0
     for n in range(N):
@@ -125,7 +127,7 @@ def init_rad_and_loc(N,dim,min_radius,b_lower,b_upper,max_ic_its,periodic):
         p.append(particle())
         # RADIUS
         # Define initial particle radius
-        p[n].r = part_size_dist(min_radius)
+        p[n].r = part_size_dist(min_diameter,max_diameter)
         # LOCATION
         # Define array for particle centers
         p[n].x = np.zeros((1, dim))
@@ -260,6 +262,7 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
     # Don't show the graph or make an animation
     if showGraph == False and saveAnimation == False:
         for i in range(n_steps):
+            print(i)
             for n in range(len(p)):
                 x_last = p[n].x
                 E_last = p[n].E
@@ -414,11 +417,9 @@ def volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot):
             x[n, 0] = p[n].x[0, 0]
             x[n, 1] = p[n].x[0, 1]
             circles.append(Circle(p[n].x[0, 0], p[n].x[0, 1], p[n].r))
-
         # Calculate the convex hull and the array of points in the hull
         hull = ConvexHull(x)
         sample = dist_in_hull(x, sampleNum)
-
         count = 0
         colorCode = np.zeros(len(sample))
         for n in range(len(sample)):
@@ -474,40 +475,118 @@ def volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot):
     return count/sampleNum
 
 
+
+# Density reduction by particle deletion
+def densityReduction(p,dim,b_lower,b_upper,red_steps,periodic,sampleNum,samplePlot,it_perParticle, disp_max, xmin, overlapWeight,pusherTF,pltTime,aniName,aniType,aniDPI,targetVF,vfTol,maxloop,max_part_del): #samplePlot
+    vf = volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,False)
+    lp = 0
+    part_del = 0
+    while lp < maxloop and part_del < max_part_del:
+        lp += 1
+        if vf > targetVF + vfTol:
+            p_new = np.delete(p, randint(0,len(p)-1),axis=0)
+            p_new = MC_Main_Drop(red_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic,
+                                 overlapWeight, 2, pusherTF,False,pltTime,False,aniName,aniType,aniDPI)
+            # p_new = MC_Main_Point(red_steps, p_new, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic,
+            #                       overlapWeight,pusherTF,False,pltTime,False,aniName,aniType,aniDPI)
+
+            vf_new = volumeFractionSampling(p_new,dim,b_lower,b_upper,sampleNum,samplePlot=False)
+            # If everything is done
+            if vf_new <= targetVF + vfTol and vf_new >= targetVF - vfTol:
+                vf = vf_new
+                p = p_new
+                # lp = maxloop + 1
+                print("Success- Volume Fraction = ",vf)
+                print("* Check the graph to make sure it is one cohesive block of particles")
+                break
+            elif vf_new > targetVF + vfTol:
+                p = p_new
+                part_del += 1
+                vf = vf_new
+        #         # lp += 1
+        #     # elif vf_new < targetVF - vfTol:
+        #     #     lp += 1
+        # print("loop = ",lp)
+        # print("particles deleted = ",part_del)
+    if part_del == max_part_del:
+        print("FAILED: Maximum number of particles deleted")
+    vf = volumeFractionSampling(p,dim,b_lower,b_upper,sampleNum,samplePlot=True)
+    print("Volume Fraction = ",vf[0])
+    return p
+
+
 ############################################################################################
 ############################################################################################
 ############################################################################################
 # PARTICLE DROP
 ############################################################################################
 
-# Gradient distance for drop (so only on the specified axis
-# for the free energy gradient to be periodic
-def d_distanceDrop(p1,p2,dim,b_upper,b_lower,periodic,dropAxis):
+# Distance for periodic not in the drop axis - hard coded for drop axis = 1
+# Distance function to implement periodic boundary conditions if needed
+# p1 and p2 will mainly be the particle x cooridnates (p[n].x)
+def distanceDrop(p1,p2,dim,b_upper,b_lower,periodic):
     if periodic == False:
-        return p1 - p2
+        return np.linalg.norm(p1 - p2)
     if periodic == True:
         diff = p1 - p2
-        perCheck = np.any(abs(diff) > 0.5*(b_upper[dropAxis]-b_lower[dropAxis]))
+        perCheck = np.any(abs(diff) > 0.5*(b_upper-b_lower))
         if perCheck == False:
-            return p1 - p2
+            return np.linalg.norm(p1 - p2)
         elif perCheck == True:
-            pD = b_upper[dropAxis]-b_lower[dropAxis] # periodic domain lengths
-            # make an array of the image cell shifts possible in 2D
-            perArray = np.array([-1*pD,0*pD,1*pD])
-            # shift the second particle into all possible image cells
-            perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
-            return p1 - (p2 + perArray[perDist.index(min(perDist))])
+            if dim == 2:
+                pD = b_upper-b_lower # periodic domain lengths
+                # make an array of the image cell shifts possible in 2D
+                perArray = np.array([[-1,0]*pD,[0,0]*pD,[1,0]*pD])
+                # shift the second particle into all possible image cells
+                perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+                return min(perDist)
+            elif dim == 3:
+                pD = b_upper-b_lower # periodic domain lengths
+                # make an array of the image cell shifts possible in 3D
+                perArray = np.array([[-1,0, -1]*pD,
+                                     [0,0, -1]*pD,
+                                     [1,0, -1]*pD,
+                                     [-1, 0, 0] * pD,
+                                     [0, 0, 0] * pD,
+                                     [1, 0, 0] * pD,
+                                     [-1, 0, 1] * pD,
+                                     [0, 0, 1] * pD,
+                                     [1, 0, 1] * pD])
+                # shift the second particle into all possible image cells
+                perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+                return min(perDist)
+
+
+# Gradient distance for drop (so only on the specified axis
+# for the free energy gradient to be periodic
+# PERIODIC REWRITE means the drop direction periodicity isnt needed anymore
+def d_distanceDrop(p1,p2,dim,b_upper,b_lower,periodic,dropAxis):
+    return p1 - p2
+    # if periodic == False:
+    #     return p1 - p2
+    # if periodic == True:
+    #     diff = p1 - p2
+    #     perCheck = np.any(abs(diff) > 0.5*(b_upper[dropAxis]-b_lower[dropAxis]))
+    #     if perCheck == False:
+    #         return p1 - p2
+    #     elif perCheck == True:
+    #         pD = b_upper[dropAxis]-b_lower[dropAxis] # periodic domain lengths
+    #         # make an array of the image cell shifts possible in 2D
+    #         perArray = np.array([-1*pD,0*pD,1*pD])
+    #         # shift the second particle into all possible image cells
+    #         perDist = (list(np.linalg.norm(p1 - (p2 + perArray[n])) for n in range(len(perArray))))
+    #         return p1 - (p2 + perArray[perDist.index(min(perDist))])
 
 
 # Calculates the energy of the given particle n in p[n]
 def EnergyDrop(n,p,xmin,overlapWeight,dropAxis,dim,b_upper,b_lower,periodic):
     # FE_dist = p[n].x[0,dropAxis] - xmin    # distance from center of particle to minimum energy location
-    FE_dist = distance(p[n].x[0,dropAxis],xmin,dim,b_upper,b_lower,periodic)
+    FE_dist = distanceDrop(p[n].x[0,dropAxis],xmin,dim,b_upper,b_lower,periodic)
     PE = FE_dist**2
     OE = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
-            dist = distance(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
+            dist = distanceDrop(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
             if dist < (p[n].r + p[m].r):
                 OE = OE + (p[n].r + p[m].r) - dist
     return PE + overlapWeight * OE
@@ -525,7 +604,7 @@ def dE_drDrop(n,p,dim,xmin,overlapWeight,dropAxis,b_upper,b_lower,periodic):
     dOE_dr = 0  # overlap energy penalty
     for m in range(len(p)):
         if m != n:
-            dist = distance(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
+            dist = distanceDrop(p[n].x,p[m].x,dim,b_upper,b_lower,periodic)
             if dist < (p[n].r + p[m].r):
                 dOE_dr = dOE_dr + (p[m].x - p[n].x) / dist
     return dPE_dr + overlapWeight * dOE_dr
@@ -538,6 +617,7 @@ def MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xm
     # Don't show the graph or make an animation
     if showGraph == False and saveAnimation == False:
         for i in range(n_steps):
+            print(i)
             for n in range(len(p)):
                 x_last = p[n].x
                 E_last = p[n].E
