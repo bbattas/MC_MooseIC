@@ -8,14 +8,16 @@ part_num = 200
 text_write = False
 # fileName = "particle_dist"
 # Small particle curve
-avg1 = 0.7
+avg1 = 700 #0.7 #um
 stdev1 = 0.5
 volper1 = 0.593
 # Larger Particle Curve
-avg2 = 5.89
+avg2 = 5890 #5.89 #um
 stdev2 = 0.5
 volper2 = 0.407
 
+min_d = 100 #0.1 #um
+max_d = 5000 #5.0 #um
 manual_bins = np.logspace(-1,3,200)
 
 def weight_percent(d):
@@ -53,6 +55,9 @@ def particle_size_dist(number_particles,min_d,max_d,avg1,stdev1,volper1,avg2,std
     small_percent = part_nums(1,avg1,stdev1,volper1,avg2,stdev2,volper2)[0]
     part_d = np.where(np.random.rand(number_particles) < small_percent, np.random.lognormal(mu(avg1, stdev1), stdev1, number_particles),
                       np.random.lognormal(mu(avg2, stdev2), stdev2, number_particles))
+    if min_d != 0.0:
+        part_d = np.where(part_d < min_d, np.full_like(part_d, min_d, dtype=np.double),
+                          np.where(part_d > max_d, np.full_like(part_d, max_d, dtype=np.double), part_d))
     return part_d
 
 # d1 = np.random.lognormal(mu(0.7,stdev1), stdev1,10000)
@@ -61,7 +66,7 @@ def particle_size_dist(number_particles,min_d,max_d,avg1,stdev1,volper1,avg2,std
 pdf1 = pdf(manual_bins,mu(avg1,stdev1),stdev1)
 pdf2 = pdf(manual_bins,mu(avg2,stdev2),stdev2)
 
-particle_sizes = particle_size_dist(part_num,0,0,avg1,stdev1,volper1,avg2,stdev2,volper2)
+particle_sizes = particle_size_dist(part_num,min_d,max_d,avg1,stdev1,volper1,avg2,stdev2,volper2)
 
 plt.figure(1)
 # plt.hist(d1,bins=manual_bins,density=True)

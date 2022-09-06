@@ -10,6 +10,7 @@ from numpy.linalg import det
 from scipy.stats import dirichlet
 from collections import namedtuple
 from random import randint
+# from particle_distribution import particle_size_dist
 import math
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits import mplot3d
@@ -35,6 +36,48 @@ def part_size_dist(min_diameter,max_diameter):
         return max_diameter/2
     else:
         return out/2
+
+
+# PARTICLE SIZE DIST BUILDING SCRIPTS
+# they were running the script particle_distribution.py for no reason when i just imported the function normally
+# with from particle_distribution import particle_size_dist
+def test_tot_vol(d):
+    radii = d/2
+    vol = 4 * math.pi * (radii ** 3) / 3
+    tot_weight = np.sum(vol)
+    return tot_weight
+
+def pdf(x,mu,sigma):
+    return (np.exp(-(np.log(x) - mu)**2 / (2 * sigma**2)) / (x * sigma * np.sqrt(2 * np.pi)))
+
+# Lognormal mu from average value and standard deviation
+def mu(avg,stdev):
+    return np.log(avg) - (stdev**2)/2
+
+def part_nums(total_particles,avg1,stdev1,volper1,avg2,stdev2,volper2):
+    # Particle size (diameter) arrays for lognormal distributions
+    d1 = np.random.lognormal(mu(avg1, stdev1), stdev1, 10000)
+    d2 = np.random.lognormal(mu(avg2, stdev2), stdev2, 10000)
+    # distribution total volumes for 10k particles each
+    vol1 = test_tot_vol(d1)
+    vol2 = test_tot_vol(d2)
+    num2 = (total_particles * vol1 / volper1) / ((vol2 / volper2) + (vol1 / volper1))
+    num1 = total_particles - num2
+    return num1, num2
+
+def particle_size_dist(number_particles,min_d,max_d,avg1,stdev1,volper1,avg2,stdev2,volper2):
+    small_percent = part_nums(1,avg1,stdev1,volper1,avg2,stdev2,volper2)[0]
+    part_d = np.where(np.random.rand(number_particles) < small_percent, np.random.lognormal(mu(avg1, stdev1), stdev1, number_particles),
+                      np.random.lognormal(mu(avg2, stdev2), stdev2, number_particles))
+    if min_d != 0.0:
+        part_d = np.where(part_d < min_d, np.full_like(part_d, min_d, dtype=np.double),
+                          np.where(part_d > max_d, np.full_like(part_d, max_d, dtype=np.double), part_d))
+    return part_d
+
+
+
+
+
 # Periodic shift if x outside domain (set p[n].x = domainShift)
 def domainShift(p,n,b_lower,b_upper,periodic):
     if periodic == False:
@@ -122,12 +165,16 @@ def d_distance(p1,p2,dim,b_upper,b_lower,periodic):
 def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,periodic):
     p = []
     it = 0
+    # Units should all be in nm now
+    # particle_size_dist(part_num, min_d, max_d, avg1, stdev1, volper1, avg2, stdev2, volper2)
+    part_rad = particle_size_dist(N,min_diameter,max_diameter,700,0.5,0.593,5890,0.5,0.407)
     for n in range(N):
         loop = 1
         p.append(particle())
         # RADIUS
         # Define initial particle radius
-        p[n].r = part_size_dist(min_diameter,max_diameter)
+        # p[n].r = part_size_dist(min_diameter,max_diameter)
+        p[n].r = part_rad[n] / 2
         # LOCATION
         # Define array for particle centers
         p[n].x = np.zeros((1, dim))
