@@ -175,6 +175,9 @@ def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,
         # Define initial particle radius
         # p[n].r = part_size_dist(min_diameter,max_diameter)
         p[n].r = part_rad[n] / 2
+        # TEMPORARY: To manually force 1 particle to be this size
+        if n == 0:
+            p[n].r = 2500 #particle size = 2x radius
         # LOCATION
         # Define array for particle centers
         p[n].x = np.zeros((1, dim))
@@ -183,6 +186,9 @@ def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,
             # Define the particle's location
             for i in range(dim):
                 p[n].x[0, i] = (b_upper[i] - b_lower[i]) * random.random() + b_lower[i]
+            # TEMPORARY: To manually force largest particel to be on the minimum energy coord
+            if n == 0:
+                p[n].x[0] = [5000, 5000, 0]
             # Check that the most recent particle isn't overlapping previous particles
             if n != 0:
                 for i in range(0, n):
@@ -318,7 +324,9 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
                 while stop == False:
                     dE = dE_dr(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                     disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
-                    p[n].x = p[n].x - disp_x
+                    # Set this so that i can manually set a large grain at the minimum point and it wont move
+                    if n != 0: #np.array_equal(p[n].x[0],xmin) == False:
+                        p[n].x = p[n].x - disp_x
                     # Periodic shift if new position is outside the bounds
                     p[n].x = domainShift(p,n,b_lower,b_upper,periodic)
                     p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
@@ -349,7 +357,9 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
                 while stop == False:
                     dE = dE_dr(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                     disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
-                    p[n].x = p[n].x - disp_x
+                    # Set this so that i can manually set a large grain at the minimum point and it wont move
+                    if n != 0: #np.array_equal(p[n].x[0],xmin) == False:
+                        p[n].x = p[n].x - disp_x
                     # Periodic shift if new position is outside the bounds
                     p[n].x = domainShift(p, n, b_lower, b_upper,periodic)
                     p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
@@ -390,7 +400,9 @@ def MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, x
                     while stop == False:
                         dE = dE_dr(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)
                         disp_x = random.random() * disp_max * dE / np.linalg.norm(dE)
-                        p[n].x = p[n].x - disp_x
+                        # Set this so that i can manually set a large grain at the minimum point and it wont move
+                        if n != 0: #np.array_equal(p[n].x[0],xmin) == False:
+                            p[n].x = p[n].x - disp_x
                         # Periodic shift if new position is outside the bounds
                         p[n].x = domainShift(p, n, b_lower, b_upper,periodic)
                         p[n].E = Energy(n, p, xmin, overlapWeight,dim,b_upper,b_lower,periodic)

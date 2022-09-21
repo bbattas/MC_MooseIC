@@ -7,16 +7,16 @@ from random import randint
 import time
 
 dim = 3                                           # Dimensions
-min_diameter = 100                                  # Minimum Particle Radius (nm)
+min_diameter = 200                                  # Minimum Particle Radius (nm)
 # b_upper = [2000000,2500000]#[4000,8000,4000]#100 * np.ones(dim)                      # Upper bound [x,y,z]
 # min_diameter = 5
 max_diameter = 5000
-b_upper = [8000,8000,10000]
+b_upper = [10000,10000,10000]
 b_lower = 0 * np.ones(dim)                        # Lower bound [x,y,z]
-periodic = True
+periodic = False
 N = 150                                        # Number of particles
 max_ic_its = 120                                  # Maximum number of tries to generate initial condition
-xmin = 0#[1000000,1250000]#0#[0,0,0]#[0, 0]                                   # Lowest energy location [x,y,z], drop uses 1 coordinate
+xmin = [5000,5000,0]#0#[1000000,1250000]#0#[0,0,0]#[0, 0]                                   # Lowest energy location [x,y,z], drop uses 1 coordinate
 dropAxis = 2                                      # Axis (0,1,2 = x,y,z) for particles to drop (if using drop)
 # energyType = "Point"                              # Point, Drop
 overlapWeight = 100000000                               # Weight for particle overlap penalty
@@ -35,16 +35,16 @@ maxloop = 20
 max_part_del = 20
 
 # Text output details
-txtName = "PeriodicDrop_VF_"
+txtName = "converge_1Large"
 header = False
 
 # Graphing Details
 showGraph = True
 pltTime = 0.02
 # Animation Details
-saveAnimation = False
+saveAnimation = True
 aniType = "gif"
-aniName = "3D_Drop_"
+aniName = "3D_converge_1Large"
 aniDPI = 400
 
 # Outside bounds move
@@ -79,14 +79,14 @@ p = init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,
 #
 #
 # # # Particles all converge to a low energy point (xmin)
-# p = MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI)
+p = MC_Main_Point(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight,pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI)
 
 # # Particles fall to y = xmin
-p = MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight, dropAxis,
-                 pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI)
+# p = MC_Main_Drop(n_steps, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight, dropAxis,
+#                  pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI)
 
 print("Done Main")
-writeText("PeriodicDrop_predelete_",p,dim,header,b_lower,b_upper)
+writeText(txtName,p,dim,header,b_lower,b_upper)
 
 
 #
