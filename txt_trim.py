@@ -43,22 +43,22 @@ from MC_functions import *
 # aniDPI = 400
 
 dim = 3                                           # Dimensions
-min_diameter = 100                                  # Minimum Particle Radius (nm)
+min_diameter = 400                                  # Minimum Particle Radius (nm)
 # b_upper = [2000000,2500000]#[4000,8000,4000]#100 * np.ones(dim)                      # Upper bound [x,y,z]
 # min_diameter = 5
 max_diameter = 5000
-b_upper = [10000,10000,5000]
+b_upper = [4000,4000,5000]
 b_lower = 0 * np.ones(dim)                        # Lower bound [x,y,z]
 periodic = True
-N = 150                                        # Number of particles
+N = 50                                        # Number of particles
 max_ic_its = 120                                  # Maximum number of tries to generate initial condition
-xmin = [5000,5000,2000]#0#[0,0,0]#[0, 0]                                   # Lowest energy location [x,y,z], drop uses 1 coordinate
+xmin = [1000,1000,1000]#0#[0,0,0]#[0, 0]                                   # Lowest energy location [x,y,z], drop uses 1 coordinate
 dropAxis = 2                                      # Axis (0,1,2 = x,y,z) for particles to drop (if using drop)
 # energyType = "Point"                              # Point, Drop
 overlapWeight = 100000000                               # Weight for particle overlap penalty
 n_steps = 80                                     # Number of MC iterations
 it_perParticle = 3                                # Number of iterations to try per particle with Ian's approach
-disp_max = 1000#20000                                      # Maximum particle displacement distance
+disp_max = 10#1000#20000                                      # Maximum particle displacement distance
 pusherTF = False                                  # Whether or not to use the pusher function (W.I.P. atm)
 
 # volumeFractionSampling Details
@@ -80,7 +80,7 @@ pltTime = 0.02
 # Animation Details
 saveAnimation = True
 aniType = "gif"
-aniName = "3D_converge_3.1"
+aniName = "3D_converge_corner_cont"
 aniDPI = 400
 
 
@@ -107,7 +107,7 @@ def txtReconstruct(fileName):
     return p
 
 
-p = txtReconstruct("converge_1Large_2")
+p = txtReconstruct("converge_1Large_corner_cont")
 
 # p[n].x = np.zeros((1, dim))
 
@@ -123,10 +123,10 @@ plt.show()
 # Run more steps
 # p = MC_Main_Drop(10, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, periodic, overlapWeight, dropAxis,
 #                  pusherTF,showGraph,pltTime,saveAnimation,aniName,aniType,aniDPI)
-p = MC_Main_Point(20, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, False, overlapWeight,
-                  pusherTF,showGraph,pltTime,saveAnimation,"converge",aniType,aniDPI)
+p = MC_Main_Point(100, p, dim, b_lower, b_upper, it_perParticle, disp_max, xmin, False, overlapWeight,
+                  pusherTF,showGraph,pltTime,saveAnimation,"converge_corner_cont2",aniType,aniDPI)
 
-writeText("3D_converge_1Large_3.1",p,dim,header,b_lower,b_upper)
+writeText("converge_1Large_corner_cont2",p,dim,header,b_lower,b_upper)
 quit()
 p = MC_Main_Drop(15, p, dim, b_lower, b_upper, it_perParticle, disp_max, 0, periodic, overlapWeight, dropAxis,
                  pusherTF,showGraph,pltTime,saveAnimation,"drop",aniType,aniDPI)

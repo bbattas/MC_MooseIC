@@ -188,7 +188,7 @@ def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,
                 p[n].x[0, i] = (b_upper[i] - b_lower[i]) * random.random() + b_lower[i]
             # TEMPORARY: To manually force largest particel to be on the minimum energy coord
             if n == 0:
-                p[n].x[0] = [5000, 5000, 0]
+                p[n].x[0] = [0, 0, 0]
             # Check that the most recent particle isn't overlapping previous particles
             if n != 0:
                 for i in range(0, n):
