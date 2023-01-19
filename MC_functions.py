@@ -67,6 +67,8 @@ def part_nums(total_particles,avg1,stdev1,volper1,avg2,stdev2,volper2):
 
 def particle_size_dist(number_particles,min_d,max_d,avg1,stdev1,volper1,avg2,stdev2,volper2):
     small_percent = part_nums(1,avg1,stdev1,volper1,avg2,stdev2,volper2)[0]
+    # TEMPORARY: force all to be large
+    #small_percent = 0.0
     part_d = np.where(np.random.rand(number_particles) < small_percent, np.random.lognormal(mu(avg1, stdev1), stdev1, number_particles),
                       np.random.lognormal(mu(avg2, stdev2), stdev2, number_particles))
     if min_d != 0.0:
@@ -175,9 +177,10 @@ def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,
         # Define initial particle radius
         # p[n].r = part_size_dist(min_diameter,max_diameter)
         p[n].r = part_rad[n] / 2
+        print(p[n].r)
         # TEMPORARY: To manually force 1 particle to be this size
         if n == 0:
-            p[n].r = 2500 #particle size = 2x radius
+            p[n].r = 2500#5000#2500 #particle size = 2x radius
         # LOCATION
         # Define array for particle centers
         p[n].x = np.zeros((1, dim))
@@ -188,7 +191,7 @@ def init_rad_and_loc(N,dim,min_diameter,max_diameter,b_lower,b_upper,max_ic_its,
                 p[n].x[0, i] = (b_upper[i] - b_lower[i]) * random.random() + b_lower[i]
             # TEMPORARY: To manually force largest particel to be on the minimum energy coord
             if n == 0:
-                p[n].x[0] = [0, 0, 0]
+                p[n].x[0] = [0, 0]#, 0]
             # Check that the most recent particle isn't overlapping previous particles
             if n != 0:
                 for i in range(0, n):

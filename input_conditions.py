@@ -6,21 +6,21 @@ import ffmpeg
 from random import randint
 import time
 
-dim = 3                                           # Dimensions
-min_diameter = 400                                  # Minimum Particle Radius (nm)
+dim = 2                                           # Dimensions
+min_diameter = 200#2000#400                                  # Minimum Particle Radius (nm)
 # b_upper = [2000000,2500000]#[4000,8000,4000]#100 * np.ones(dim)                      # Upper bound [x,y,z]
 # min_diameter = 5
-max_diameter = 5000
-b_upper = [5000,5000,8000]
+max_diameter = 5000#10000#5000
+b_upper = [10000,10000]#,30000]
 b_lower = 0 * np.ones(dim)                        # Lower bound [x,y,z]
 periodic = False
-N = 50                                        # Number of particles
+N = 20                                        # Number of particles
 max_ic_its = 120                                  # Maximum number of tries to generate initial condition
-xmin = [1000,1000,1000]#0#[1000000,1250000]#0#[0,0,0]#[0, 0]                                   # Lowest energy location [x,y,z], drop uses 1 coordinate
+xmin = [1000,1000]#[3000,3000]#[3000,3000,3000]#0#[1000000,1250000]#0#[0,0,0]#[0, 0]                                   # Lowest energy location [x,y,z], drop uses 1 coordinate
 dropAxis = 2                                      # Axis (0,1,2 = x,y,z) for particles to drop (if using drop)
 # energyType = "Point"                              # Point, Drop
 overlapWeight = 100000000                               # Weight for particle overlap penalty
-n_steps = 40                                     # Number of MC iterations
+n_steps = 80#40                                     # Number of MC iterations
 it_perParticle = 3                                # Number of iterations to try per particle with Ian's approach
 disp_max = 1000                                      # Maximum particle displacement distance
 pusherTF = False                                  # Whether or not to use the pusher function (W.I.P. atm)
@@ -35,7 +35,7 @@ maxloop = 20
 max_part_del = 20
 
 # Text output details
-txtName = "converge_1Large"
+txtName = "2D_50_1Large"
 header = False
 
 # Graphing Details
@@ -44,7 +44,7 @@ pltTime = 0.02
 # Animation Details
 saveAnimation = True
 aniType = "gif"
-aniName = "3D_corner_1Large"
+aniName = "2D_corner_50_1Large"
 aniDPI = 400
 
 # Outside bounds move
